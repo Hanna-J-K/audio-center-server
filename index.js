@@ -16,7 +16,7 @@ app.use(express.static("public"));
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "*",
     methods: ["GET", "POST"]
   },
   allowEIO3: true
@@ -63,4 +63,14 @@ io.on("connection", function (socket) {
 
     socket.emit('play-song', trackArray, { name: filename }, {type: 'audio/mpeg'});
   });
+
+  socket.emit("set-client-id", socket.id);
+
+  socket.on("call-user", ({ userToCall, signalData, from, name }) => {
+		io.to(userToCall).emit("call-user", { signal: signalData, from, name });
+	});
+
+	socket.on("answer-call", (data) => {
+		io.to(data.to).emit("call-accepted", data.signal)
+	});
 });
