@@ -66,8 +66,8 @@ io.on("connection", function (socket) {
 
   socket.emit("set-client-id", socket.id);
 
-  socket.on("call-user", ({ userToCall, signalData, from, name }) => {
-		io.to(userToCall).emit("call-user", { signal: signalData, from, name });
+  socket.on("call-user", ({ userToCall, from, name }) => {
+		io.to(userToCall).emit("call-user", { from, name });
 	});
 
 	socket.on("answer-call", (data) => {
