@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+public/cry.mp3
+public/Not Rickroll.mp3
