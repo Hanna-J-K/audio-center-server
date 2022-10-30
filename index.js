@@ -78,12 +78,10 @@ io.on("connection", function (socket) {
   });
 
   socket.on("search-for-track", (trackId) => {
-    console.log(trackId);
-
     const trackInfo = searchTrackData.find((track) => {
       return track.id.includes(trackId);
     });
-    socket.broadcast.emit("send-track-info", trackInfo);
+    socket.emit("send-track-info", trackInfo);
 
     let trackFilename = "";
     if (trackId) {
@@ -93,13 +91,14 @@ io.on("connection", function (socket) {
         }
       });
     }
-    console.log(trackFile);
     trackFilename = trackFile.path;
-    console.log(typeof trackFilename);
 
     const trackArray = fs.readFileSync(trackFilename).buffer;
-    console.log(trackFilename);
-    socket.broadcast.emit("send-song", trackArray, trackFilename, "audio/mpeg");
+    socket.emit("send-song", {
+      trackArray,
+      trackFilename,
+      id: trackFile.id,
+    });
   });
 
   socket.on("send_message_to_server", (data) => {
