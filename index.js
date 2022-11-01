@@ -82,6 +82,7 @@ io.on("connection", function (socket) {
     const trackInfo = searchTrackData.find((track) => {
       return track.id.includes(trackId);
     });
+    console.log(typeof trackInfo.id);
     socket.emit("send-track-info", trackInfo);
 
     if (trackId) {
