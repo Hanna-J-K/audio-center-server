@@ -25,6 +25,7 @@ const io = require("socket.io")(server, {
 const searchTrackData = [];
 const pathTrackData = [];
 const pathToDirectory = __dirname + "/public/music/";
+let trackFilename = "";
 
 fs.readdirSync(pathToDirectory, { withFileTypes: true })
   .filter((itemArtist) => itemArtist.isDirectory())
@@ -83,7 +84,6 @@ io.on("connection", function (socket) {
     });
     socket.emit("send-track-info", trackInfo);
 
-    let trackFilename = "";
     if (trackId) {
       trackFile = pathTrackData.find((track) => {
         if (track.id.includes(trackId)) {
@@ -91,14 +91,20 @@ io.on("connection", function (socket) {
         }
       });
     }
-    trackFilename = trackFile.path;
 
-    const trackArray = fs.readFileSync(trackFilename).buffer;
-    socket.emit("send-song", {
-      trackArray,
-      trackFilename,
+    socket.emit("send-track-to-queue", {
       id: trackFile.id,
     });
+  });
+
+  socket.on("send-track-source", (trackId) => {
+    const trackSource = pathTrackData.find((track) => {
+      return track.id.includes(trackId);
+    });
+
+    trackFilename = trackSource.path;
+    const trackArray = fs.readFileSync(trackFilename).buffer;
+    socket.emit("send-track", { id: trackId, source: trackArray });
   });
 
   socket.on("send_message_to_server", (data) => {
