@@ -99,6 +99,7 @@ io.on("connection", function (socket) {
   });
 
   socket.on("send-track-source", (trackId) => {
+    console.log("send-track-source", trackId);
     const trackSource = pathTrackData.find((track) => {
       return track.id.includes(trackId);
     });
@@ -106,6 +107,15 @@ io.on("connection", function (socket) {
     trackFilename = trackSource.path;
     const trackArray = fs.readFileSync(trackFilename).buffer;
     socket.emit("send-track", { id: trackId, source: trackArray });
+  });
+
+  socket.on("save-to-library", (trackId) => {
+    const trackInfo = searchTrackData.find((track) => {
+      return track.id.includes(trackId);
+    });
+    console.log(trackInfo);
+    console.log("Track send to library: " + trackInfo.title);
+    socket.emit("send-saved-track", trackInfo);
   });
 
   socket.on("send_message_to_server", (data) => {
