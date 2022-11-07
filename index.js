@@ -25,6 +25,7 @@ const io = require("socket.io")(server, {
 const searchTrackData = [];
 const pathTrackData = [];
 const pathToDirectory = __dirname + "/public/music/";
+const libraryData = [];
 let trackFilename = "";
 
 fs.readdirSync(pathToDirectory, { withFileTypes: true })
@@ -82,7 +83,6 @@ io.on("connection", function (socket) {
     const trackInfo = searchTrackData.find((track) => {
       return track.id.includes(trackId);
     });
-    console.log(typeof trackInfo.id);
     socket.emit("send-track-info", trackInfo);
 
     if (trackId) {
@@ -99,7 +99,6 @@ io.on("connection", function (socket) {
   });
 
   socket.on("send-track-source", (trackId) => {
-    console.log("send-track-source", trackId);
     const trackSource = pathTrackData.find((track) => {
       return track.id.includes(trackId);
     });
@@ -108,14 +107,27 @@ io.on("connection", function (socket) {
     const trackArray = fs.readFileSync(trackFilename).buffer;
     socket.emit("send-track", { id: trackId, source: trackArray });
   });
-
+  let savedTrackInfo = [];
   socket.on("save-to-library", (trackId) => {
-    const trackInfo = searchTrackData.find((track) => {
+    if (libraryData.find((track) => track.id.includes(trackId))) {
+      const index = libraryData.findIndex((track) =>
+        track.id.includes(trackId)
+      );
+      libraryData.splice(index, 1);
+    } else {
+      savedTrackInfo = searchTrackData.find((track) => {
+        return track.id.includes(trackId);
+      });
+      libraryData.push(savedTrackInfo);
+    }
+    if (savedTrackInfo) socket.emit("send-saved-track", savedTrackInfo);
+  });
+
+  socket.on("get-now-playing-info", (trackId) => {
+    const nowPlayingInfo = searchTrackData.find((track) => {
       return track.id.includes(trackId);
     });
-    console.log(trackInfo);
-    console.log("Track send to library: " + trackInfo.title);
-    socket.emit("send-saved-track", trackInfo);
+    socket.emit("send-now-playing-info", nowPlayingInfo);
   });
 
   socket.on("send_message_to_server", (data) => {
@@ -132,4 +144,8 @@ io.on("connection", function (socket) {
   socket.on("answer-call", (data) => {
     io.to(data.to).emit("call-accepted", data.signal);
   });
+});
+
+app.get("/library", (req, res) => {
+  res.send(libraryData);
 });
