@@ -79,48 +79,54 @@ io.on("connection", function (socket) {
     socket.emit("send-track-list", searchTrackData);
   });
 
-  socket.on("search-for-track", (trackId) => {
+  socket.on("search-for-track", (trackData) => {
     const trackInfo = searchTrackData.find((track) => {
-      return track.id.includes(trackId);
+      return track.id.includes(trackData.id);
     });
     socket.emit("send-track-info", trackInfo);
 
-    if (trackId) {
+    if (trackData.id) {
       trackFile = pathTrackData.find((track) => {
-        if (track.id.includes(trackId)) {
-          return track.id.includes(trackId);
+        if (track.id.includes(trackData.id)) {
+          return track.id.includes(trackData.id);
         }
       });
     }
-
-    socket.emit("send-track-to-queue", {
-      id: trackFile.id,
-    });
   });
 
-  socket.on("send-track-source", (trackId) => {
+  socket.on("send-track-source", (trackData) => {
     const trackSource = pathTrackData.find((track) => {
-      return track.id.includes(trackId);
+      return track.id.includes(trackData.id);
     });
 
     trackFilename = trackSource.path;
     const trackArray = fs.readFileSync(trackFilename).buffer;
-    socket.emit("send-track", { id: trackId, source: trackArray });
+    socket.emit("send-track", { id: trackData.id, source: trackArray });
   });
   let savedTrackInfo = [];
   socket.on("save-to-library", (trackId) => {
-    if (libraryData.find((track) => track.id.includes(trackId))) {
-      const index = libraryData.findIndex((track) =>
-        track.id.includes(trackId)
-      );
-      libraryData.splice(index, 1);
+    console.log("halsdlgj");
+    console.log(libraryData.length);
+    if (libraryData.length !== 0) {
+      if (libraryData.find((track) => track.id.includes(trackId))) {
+        const index = libraryData.findIndex((track) =>
+          track.id.includes(trackId)
+        );
+        libraryData.splice(index, 1);
+      } else {
+        savedTrackInfo = searchTrackData.find((track) => {
+          return track.id.includes(trackId);
+        });
+        libraryData.push(savedTrackInfo);
+        console.log(libraryData);
+      }
     } else {
       savedTrackInfo = searchTrackData.find((track) => {
         return track.id.includes(trackId);
       });
       libraryData.push(savedTrackInfo);
+      console.log(libraryData);
     }
-    if (savedTrackInfo) socket.emit("send-saved-track", savedTrackInfo);
   });
 
   socket.on("get-now-playing-info", (trackId) => {
