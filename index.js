@@ -26,6 +26,19 @@ const searchTrackData = [];
 const pathTrackData = [];
 const pathToDirectory = __dirname + "/public/music/";
 const libraryData = [];
+const recommendedRadios = [
+  {
+    id: uuidv4(),
+    name: "TokFM",
+    url: "https://radiostream.pl/tuba10-1.mp3",
+  },
+  {
+    id: uuidv4(),
+    name: "RMF FM",
+    url: "http://195.150.20.242:8000/rmf_fm",
+  },
+];
+
 let trackFilename = "";
 
 fs.readdirSync(pathToDirectory, { withFileTypes: true })
@@ -154,4 +167,8 @@ io.on("connection", function (socket) {
 
 app.get("/library", (req, res) => {
   res.send(libraryData);
+});
+
+app.get("/radio", (req, res) => {
+  res.send(recommendedRadios);
 });
