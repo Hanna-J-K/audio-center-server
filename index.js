@@ -39,6 +39,7 @@ const recommendedRadios = [
   },
 ];
 const customRadios = [];
+const recommendedBroadcasts = [];
 
 let trackFilename = "";
 
@@ -169,6 +170,10 @@ io.on("connection", function (socket) {
   socket.on("answer-call", (data) => {
     io.to(data.to).emit("call-accepted", data.signal);
   });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected: " + socket.id);
+  });
 });
 
 app.get("/library", (req, res) => {
@@ -177,4 +182,8 @@ app.get("/library", (req, res) => {
 
 app.get("/radio", (req, res) => {
   res.send(recommendedRadios);
+});
+
+app.get("/broadcast", (req, res) => {
+  res.send(recommendedBroadcasts);
 });
