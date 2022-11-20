@@ -38,6 +38,7 @@ const recommendedRadios = [
     url: "http://195.150.20.242:8000/rmf_fm",
   },
 ];
+const customRadios = [];
 
 let trackFilename = "";
 
@@ -118,8 +119,6 @@ io.on("connection", function (socket) {
   });
   let savedTrackInfo = [];
   socket.on("save-to-library", (trackId) => {
-    console.log("halsdlgj");
-    console.log(libraryData.length);
     if (libraryData.length !== 0) {
       if (libraryData.find((track) => track.id.includes(trackId))) {
         const index = libraryData.findIndex((track) =>
@@ -131,14 +130,12 @@ io.on("connection", function (socket) {
           return track.id.includes(trackId);
         });
         libraryData.push(savedTrackInfo);
-        console.log(libraryData);
       }
     } else {
       savedTrackInfo = searchTrackData.find((track) => {
         return track.id.includes(trackId);
       });
       libraryData.push(savedTrackInfo);
-      console.log(libraryData);
     }
   });
 
@@ -147,6 +144,15 @@ io.on("connection", function (socket) {
       return track.id.includes(trackId);
     });
     socket.emit("send-now-playing-info", nowPlayingInfo);
+  });
+
+  socket.on("add-custom-radio-station", (stationURL) => {
+    customRadios.push({
+      id: uuidv4(),
+      name: "Custom Radio " + `${customRadios.length + 1}`,
+      url: stationURL,
+    });
+    socket.emit("get-custom-radio-stations", customRadios);
   });
 
   socket.on("send_message_to_server", (data) => {
