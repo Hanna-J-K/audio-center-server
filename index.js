@@ -24,7 +24,8 @@ const io = require("socket.io")(server, {
 
 const searchTrackData = [];
 const pathTrackData = [];
-const pathToDirectory = __dirname + "/public/music/";
+const pathToMusicDirectory = __dirname + "/public/music/";
+// const pathToBroadcastsDirectory = __dirname + "/public/broadcasts/";
 const libraryData = [];
 const recommendedRadios = [
   {
@@ -40,19 +41,20 @@ const recommendedRadios = [
 ];
 const customRadios = [];
 const recommendedBroadcasts = [];
+const customBroadcasts = [];
 
 let trackFilename = "";
 
-fs.readdirSync(pathToDirectory, { withFileTypes: true })
+fs.readdirSync(pathToMusicDirectory, { withFileTypes: true })
   .filter((itemArtist) => itemArtist.isDirectory())
   .forEach((artistDirectory) => {
-    fs.readdirSync(pathToDirectory + artistDirectory.name + "/", {
+    fs.readdirSync(pathToMusicDirectory + artistDirectory.name + "/", {
       withFileTypes: true,
     })
       .filter((itemAlbum) => itemAlbum.isDirectory())
       .forEach((albumDirectory) => {
         fs.readdirSync(
-          pathToDirectory +
+          pathToMusicDirectory +
             artistDirectory.name +
             "/" +
             albumDirectory.name +
@@ -70,7 +72,7 @@ fs.readdirSync(pathToDirectory, { withFileTypes: true })
             const trackPaths = {
               id: trackData.id,
               path:
-                pathToDirectory +
+                pathToMusicDirectory +
                 artistDirectory.name +
                 "/" +
                 albumDirectory.name +
@@ -93,6 +95,7 @@ io.on("connection", function (socket) {
   socket.on("get-track-list", () => {
     socket.emit("send-track-list", searchTrackData);
   });
+  let broadcastName = "";
 
   socket.on("search-for-track", (trackData) => {
     const trackInfo = searchTrackData.find((track) => {
@@ -154,6 +157,21 @@ io.on("connection", function (socket) {
       url: stationURL,
     });
     socket.emit("get-custom-radio-stations", customRadios);
+  });
+
+  socket.on("create-user-broadcast-room", (broadcastNameData) => {
+    broadcastName = broadcastNameData;
+  });
+
+  socket.on("send-broadcast", (broadcastURL) => {
+    customBroadcasts.push({
+      id: uuidv4(),
+      title: broadcastName,
+      artist: "Anonymous",
+      url: broadcastURL,
+    });
+
+    socket.emit("get-custom-broadcasts", customBroadcasts);
   });
 
   socket.on("send_message_to_server", (data) => {
