@@ -95,7 +95,6 @@ io.on("connection", function (socket) {
   socket.on("get-track-list", () => {
     socket.emit("send-track-list", searchTrackData);
   });
-  let broadcastName = "";
 
   socket.on("search-for-track", (trackData) => {
     const trackInfo = searchTrackData.find((track) => {
@@ -159,18 +158,21 @@ io.on("connection", function (socket) {
     socket.emit("get-custom-radio-stations", customRadios);
   });
 
-  socket.on("create-user-broadcast-room", (broadcastNameData) => {
-    broadcastName = broadcastNameData;
+  socket.on("started-broadcast", (listeningStream, broadcastRoom) => {
+    socket
+      .to(broadcastRoom)
+      .emit("listen-to-current-broadcast", listeningStream);
   });
 
-  socket.on("send-broadcast", (broadcastURL) => {
-    customBroadcasts.push({
-      id: uuidv4(),
-      title: broadcastName,
-      artist: "Anonymous",
-      url: broadcastURL,
-    });
+  socket.on("join-broadcast-room", (broadcastRoomId, userSocketId) => {
+    io.of("/").sockets.get(userSocketId).join(broadcastRoomId);
+    console.log(
+      "User " + userSocketId + " joined broadcast room: " + broadcastRoomId
+    );
+  });
 
+  socket.on("upload-custom-broadcast", (data) => {
+    customBroadcasts.push(data);
     socket.emit("get-custom-broadcasts", customBroadcasts);
   });
 
