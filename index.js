@@ -172,7 +172,21 @@ io.on("connection", function (socket) {
   });
 
   socket.on("upload-custom-broadcast", (data) => {
-    customBroadcasts.push(data);
+    const occurencesFromSameSession = customBroadcasts.filter(
+      (broadcast) => broadcast.title === data.title
+    );
+    if (occurencesFromSameSession.length > 0) {
+      customBroadcasts.push({
+        id: data.id,
+        title: data.title + ` (${occurencesFromSameSession.length})`,
+        artist: data.artist,
+        url: data.url,
+      });
+    } else {
+      customBroadcasts.push(data);
+    }
+
+    console.log(customBroadcasts);
     socket.emit("get-custom-broadcasts", customBroadcasts);
   });
 
