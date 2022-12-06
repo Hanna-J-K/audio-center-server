@@ -1,7 +1,9 @@
+/* eslint-disable require-jsdoc */
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
+const { PrismaClient } = require("@prisma/client");
 
 // App setup
 const PORT = 3000;
@@ -10,9 +12,11 @@ const server = app.listen(PORT, function () {
   console.log(`Listening on port ${PORT}`);
   console.log(`http://localhost:${PORT}`);
 });
+const prisma = new PrismaClient();
 
 app.use(cors());
 app.use(express.static("public"));
+app.use(express.json());
 
 const io = require("socket.io")(server, {
   cors: {
@@ -21,6 +25,49 @@ const io = require("socket.io")(server, {
   },
   allowEIO3: true,
 });
+
+async function main() {
+  // const allUsers = await prisma.user.findMany();
+  // console.log(allUsers);
+}
+
+// async function findUserByEmail(email) {
+//   const user = await prisma.user.findUnique({
+//     where: {
+//       email: email,
+//     },
+//   });
+//   return user;
+// }
+
+// async function registerNewUser(email, username, password) {
+//   const user = await prisma.user.create({
+//     data: {
+//       email: email,
+//       username: username,
+//       password: password,
+//     },
+//   });
+//   return user;
+// }
+
+// async function getAllUsers() {
+//   const allUsers = await prisma.user.findMany();
+//   return allUsers;
+// }
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+
+  .catch(async (e) => {
+    console.error(e);
+
+    await prisma.$disconnect();
+
+    process.exit(1);
+  });
 
 const searchTrackData = [];
 const pathTrackData = [];
