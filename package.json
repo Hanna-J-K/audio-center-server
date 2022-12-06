@@ -15,7 +15,7 @@
     "uuid": "^9.0.0"
   },
   "scripts": {
-    "start": "index.js",
+    "start": "node index.js",
     "dev": "nodemon index.js",
     "lint": "eslint ."
   },
