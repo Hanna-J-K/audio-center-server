@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require("uuid");
 const { PrismaClient } = require("@prisma/client");
 
 // App setup
-const PORT = 3000;
+const PORT = 8080;
 const app = express();
 const server = app.listen(PORT, function () {
   console.log(`Listening on port ${PORT}`);
