@@ -71,7 +71,7 @@ main()
 
 const searchTrackData = [];
 const pathTrackData = [];
-const pathToMusicDirectory = __dirname + "/public/music/";
+// const pathToMusicDirectory = __dirname + "/public/music/";
 // const pathToBroadcastsDirectory = __dirname + "/public/broadcasts/";
 const libraryData = [];
 const recommendedRadios = [
@@ -92,45 +92,45 @@ const customBroadcasts = [];
 
 let trackFilename = "";
 
-fs.readdirSync(pathToMusicDirectory, { withFileTypes: true })
-  .filter((itemArtist) => itemArtist.isDirectory())
-  .forEach((artistDirectory) => {
-    fs.readdirSync(pathToMusicDirectory + artistDirectory.name + "/", {
-      withFileTypes: true,
-    })
-      .filter((itemAlbum) => itemAlbum.isDirectory())
-      .forEach((albumDirectory) => {
-        fs.readdirSync(
-          pathToMusicDirectory +
-            artistDirectory.name +
-            "/" +
-            albumDirectory.name +
-            "/",
-          { withFileTypes: true }
-        )
-          .filter((itemTrack) => itemTrack.isFile())
-          .forEach((trackFile) => {
-            const trackData = {
-              id: uuidv4(),
-              title: trackFile.name.replace(".mp3", ""),
-              artist: artistDirectory.name,
-              album: albumDirectory.name,
-            };
-            const trackPaths = {
-              id: trackData.id,
-              path:
-                pathToMusicDirectory +
-                artistDirectory.name +
-                "/" +
-                albumDirectory.name +
-                "/" +
-                trackFile.name,
-            };
-            searchTrackData.push(trackData);
-            pathTrackData.push(trackPaths);
-          });
-      });
-  });
+// fs.readdirSync(pathToMusicDirectory, { withFileTypes: true })
+//   .filter((itemArtist) => itemArtist.isDirectory())
+//   .forEach((artistDirectory) => {
+//     fs.readdirSync(pathToMusicDirectory + artistDirectory.name + "/", {
+//       withFileTypes: true,
+//     })
+//       .filter((itemAlbum) => itemAlbum.isDirectory())
+//       .forEach((albumDirectory) => {
+//         fs.readdirSync(
+//           pathToMusicDirectory +
+//             artistDirectory.name +
+//             "/" +
+//             albumDirectory.name +
+//             "/",
+//           { withFileTypes: true }
+//         )
+//           .filter((itemTrack) => itemTrack.isFile())
+//           .forEach((trackFile) => {
+//             const trackData = {
+//               id: uuidv4(),
+//               title: trackFile.name.replace(".mp3", ""),
+//               artist: artistDirectory.name,
+//               album: albumDirectory.name,
+//             };
+//             const trackPaths = {
+//               id: trackData.id,
+//               path:
+//                 pathToMusicDirectory +
+//                 artistDirectory.name +
+//                 "/" +
+//                 albumDirectory.name +
+//                 "/" +
+//                 trackFile.name,
+//             };
+//             searchTrackData.push(trackData);
+//             pathTrackData.push(trackPaths);
+//           });
+//       });
+//   });
 
 io.engine.on("connection_error", (err) => {
   console.log(err);
