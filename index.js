@@ -1,10 +1,15 @@
 /* eslint-disable require-jsdoc */
 const express = require("express");
 const cors = require("cors");
-const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
 const { PrismaClient } = require("@prisma/client");
 require("dotenv").config();
+const { createClient } = require("@supabase/supabase-js");
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
 // App setup
 const PORT = 8080;
@@ -19,6 +24,9 @@ app.use(cors());
 app.use(express.static("public"));
 app.use(express.json());
 
+let libraryData = [];
+let searchTrackData = [];
+
 const io = require("socket.io")(server, {
   cors: {
     origin: "*",
@@ -27,35 +35,66 @@ const io = require("socket.io")(server, {
   allowEIO3: true,
 });
 
-async function main() {
-  // const allUsers = await prisma.user.findMany();
-  // console.log(allUsers);
+async function getSavedToLibrary(userId) {
+  const savedTracks = await prisma.savedTrack.findMany({
+    where: {
+      userId: userId,
+    },
+  });
+  return savedTracks;
 }
 
-// async function findUserByEmail(email) {
-//   const user = await prisma.user.findUnique({
-//     where: {
-//       email: email,
-//     },
-//   });
-//   return user;
-// }
+async function getLibraryData(userId) {
+  const savedTracks = await getSavedToLibrary(userId);
+  const libraryData = await prisma.track.findMany({
+    where: {
+      id: {
+        in: savedTracks.map((track) => track.trackId),
+      },
+    },
+  });
+  return libraryData;
+}
 
-// async function registerNewUser(email, username, password) {
-//   const user = await prisma.user.create({
-//     data: {
-//       email: email,
-//       username: username,
-//       password: password,
-//     },
-//   });
-//   return user;
-// }
+async function main() {
+  searchTrackData = await prisma.track.findMany();
+  libraryData = await getLibraryData();
+}
 
-// async function getAllUsers() {
-//   const allUsers = await prisma.user.findMany();
-//   return allUsers;
-// }
+async function getTrackSource(trackId) {
+  const trackSource = await prisma.track.findUnique({
+    where: {
+      id: trackId,
+    },
+  });
+
+  const { data, error } = await supabase.storage
+    .from("audio-center-music")
+    .download(trackSource.url);
+
+  if (error) {
+    console.log(error);
+  }
+  return data;
+}
+
+async function saveToLibrary(trackId, userId) {
+  return prisma.savedTrack.create({
+    data: {
+      userId: userId,
+      trackId: trackId,
+    },
+  });
+}
+
+async function removeFromLibrary(trackId, userId) {
+  return prisma.savedTrack.deleteMany({
+    where: {
+      trackId: trackId,
+      userId: userId,
+    },
+  });
+}
 
 main()
   .then(async () => {
@@ -70,11 +109,6 @@ main()
     process.exit(1);
   });
 
-const searchTrackData = [];
-const pathTrackData = [];
-// const pathToMusicDirectory = __dirname + "/public/music/";
-// const pathToBroadcastsDirectory = __dirname + "/public/broadcasts/";
-const libraryData = [];
 const recommendedRadios = [
   {
     id: uuidv4(),
@@ -90,48 +124,6 @@ const recommendedRadios = [
 const customRadios = [];
 const recommendedBroadcasts = [];
 const customBroadcasts = [];
-
-let trackFilename = "";
-
-// fs.readdirSync(pathToMusicDirectory, { withFileTypes: true })
-//   .filter((itemArtist) => itemArtist.isDirectory())
-//   .forEach((artistDirectory) => {
-//     fs.readdirSync(pathToMusicDirectory + artistDirectory.name + "/", {
-//       withFileTypes: true,
-//     })
-//       .filter((itemAlbum) => itemAlbum.isDirectory())
-//       .forEach((albumDirectory) => {
-//         fs.readdirSync(
-//           pathToMusicDirectory +
-//             artistDirectory.name +
-//             "/" +
-//             albumDirectory.name +
-//             "/",
-//           { withFileTypes: true }
-//         )
-//           .filter((itemTrack) => itemTrack.isFile())
-//           .forEach((trackFile) => {
-//             const trackData = {
-//               id: uuidv4(),
-//               title: trackFile.name.replace(".mp3", ""),
-//               artist: artistDirectory.name,
-//               album: albumDirectory.name,
-//             };
-//             const trackPaths = {
-//               id: trackData.id,
-//               path:
-//                 pathToMusicDirectory +
-//                 artistDirectory.name +
-//                 "/" +
-//                 albumDirectory.name +
-//                 "/" +
-//                 trackFile.name,
-//             };
-//             searchTrackData.push(trackData);
-//             pathTrackData.push(trackPaths);
-//           });
-//       });
-//   });
 
 io.engine.on("connection_error", (err) => {
   console.log(err);
@@ -149,44 +141,33 @@ io.on("connection", function (socket) {
       return track.id.includes(trackData.id);
     });
     socket.emit("send-track-info", trackInfo);
-
-    if (trackData.id) {
-      trackFile = pathTrackData.find((track) => {
-        if (track.id.includes(trackData.id)) {
-          return track.id.includes(trackData.id);
-        }
-      });
-    }
   });
 
-  socket.on("send-track-source", (trackData) => {
-    const trackSource = pathTrackData.find((track) => {
-      return track.id.includes(trackData.id);
-    });
-
-    trackFilename = trackSource.path;
-    const trackArray = fs.readFileSync(trackFilename).buffer;
+  socket.on("send-track-source", async (trackData) => {
+    const trackSource = await getTrackSource(trackData.id);
+    const trackArray = await trackSource.arrayBuffer();
     socket.emit("send-track", { id: trackData.id, source: trackArray });
   });
-  let savedTrackInfo = [];
-  socket.on("save-to-library", (trackId) => {
+  socket.on("save-to-library", async (trackId, accessToken) => {
+    console.log(accessToken);
+    const user = await supabase.auth.getUser(accessToken);
+    console.log(user);
+    const userId = user.data.user.id;
+    console.log(userId);
     if (libraryData.length !== 0) {
-      if (libraryData.find((track) => track.id.includes(trackId))) {
-        const index = libraryData.findIndex((track) =>
-          track.id.includes(trackId)
-        );
-        libraryData.splice(index, 1);
+      const trackExists = libraryData.find((track) => {
+        return track.id.includes(trackId, userId);
+      });
+      if (!trackExists) {
+        await saveToLibrary(trackId, userId);
+        libraryData = await getLibraryData(userId);
       } else {
-        savedTrackInfo = searchTrackData.find((track) => {
-          return track.id.includes(trackId);
-        });
-        libraryData.push(savedTrackInfo);
+        await removeFromLibrary(trackId, userId);
+        libraryData = await getLibraryData(userId);
       }
     } else {
-      savedTrackInfo = searchTrackData.find((track) => {
-        return track.id.includes(trackId);
-      });
-      libraryData.push(savedTrackInfo);
+      await saveToLibrary(trackId, userId);
+      libraryData = await getLibraryData(userId);
     }
   });
 
@@ -259,7 +240,15 @@ io.on("connection", function (socket) {
 });
 
 app.get("/library", (req, res) => {
-  res.send(libraryData);
+  // eslint-disable-next-line camelcase
+  const access_token = req.headers.authorization.split(" ")[1];
+  supabase.auth.getUser(access_token).then((user) => {
+    if (user.error) {
+      res.status(401).send("Unauthorized");
+    } else {
+      res.send(libraryData);
+    }
+  });
 });
 
 app.get("/radio", (req, res) => {
