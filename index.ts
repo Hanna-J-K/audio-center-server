@@ -212,6 +212,9 @@ io.on("connection", function (socket: Socket) {
   });
 
   socket.on("publish-broadcast-session-room", (broadcastRoomId) => {
+    console.log("publish room")
+    console.log(broadcastRoomId)
+    socket.rooms
     socket.broadcast.emit("broadcast-session-room", broadcastRoomId);
   })
 
@@ -258,3 +261,8 @@ app.get("/radio", (req, res) => {
     }
   });
 });
+
+app.get("/broadcast", (req, res) => {
+  console.log(io.of("/").adapter.rooms);
+  res.send(io.of("/").adapter.rooms)
+})
