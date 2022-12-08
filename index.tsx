@@ -1,10 +1,15 @@
 /* eslint-disable require-jsdoc */
-const express = require("express");
-const cors = require("cors");
-const { v4: uuidv4 } = require("uuid");
-const { PrismaClient } = require("@prisma/client");
+import express from "express";
+import cors from "cors";
+import { v4 as uuidv4 } from "uuid";
+import { PrismaClient } from "@prisma/client";
 require("dotenv").config();
-const { createClient } = require("@supabase/supabase-js");
+import { createClient } from "@supabase/supabase-js";
+import invariant from "tiny-invariant";
+import { Socket } from "socket.io";
+
+invariant(process.env.SUPABASE_URL, "Missing env var: SUPABASE_URL");
+invariant(process.env.SUPABASE_ANON_KEY, "Missing env var: SUPABASE_ANON_KEY");
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -24,8 +29,10 @@ app.use(cors());
 app.use(express.static("public"));
 app.use(express.json());
 
-let libraryData = [];
-let searchTrackData = [];
+let libraryData: any[];
+let searchTrackData: any[];
+let recommendedRadios: any[];
+let customRadioStations: any[];
 
 const io = require("socket.io")(server, {
   cors: {
@@ -35,7 +42,7 @@ const io = require("socket.io")(server, {
   allowEIO3: true,
 });
 
-async function getSavedToLibrary(userId) {
+async function getSavedToLibrary(userId: string) {
   const savedTracks = await prisma.savedTrack.findMany({
     where: {
       userId: userId,
@@ -44,7 +51,7 @@ async function getSavedToLibrary(userId) {
   return savedTracks;
 }
 
-async function getLibraryData(userId) {
+async function getLibraryData(userId: string) {
   const savedTracks = await getSavedToLibrary(userId);
   const libraryData = await prisma.track.findMany({
     where: {
@@ -56,17 +63,14 @@ async function getLibraryData(userId) {
   return libraryData;
 }
 
-async function main() {
-  searchTrackData = await prisma.track.findMany();
-  libraryData = await getLibraryData();
-}
-
-async function getTrackSource(trackId) {
+async function getTrackSource(trackId: string) {
   const trackSource = await prisma.track.findUnique({
     where: {
       id: trackId,
     },
   });
+
+  invariant(trackSource, "Track source not found");
 
   const { data, error } = await supabase.storage
     .from("audio-center-music")
@@ -78,7 +82,7 @@ async function getTrackSource(trackId) {
   return data;
 }
 
-async function saveToLibrary(trackId, userId) {
+async function saveToLibrary(trackId: string, userId: string) {
   return prisma.savedTrack.create({
     data: {
       userId: userId,
@@ -87,13 +91,37 @@ async function saveToLibrary(trackId, userId) {
   });
 }
 
-async function removeFromLibrary(trackId, userId) {
+async function removeFromLibrary(trackId: string, userId: string) {
   return prisma.savedTrack.deleteMany({
     where: {
       trackId: trackId,
       userId: userId,
     },
   });
+}
+
+async function getCustomRadios(userId: string) {
+  const customRadios = await prisma.savedRadioStation.findMany({
+    where: {
+      userId: userId,
+    },
+  });
+  return customRadios;
+}
+
+async function saveToCustomRadios(url: string, userId: string) {
+  return prisma.savedRadioStation.create({
+    data: {
+      userId: userId,
+      title: `Custom Radio ${customRadioStations.length + 1}`,
+      url: url,
+    },
+  });
+}
+
+async function main() {
+  searchTrackData = await prisma.track.findMany();
+  recommendedRadios = await prisma.radioStation.findMany();
 }
 
 main()
@@ -109,27 +137,11 @@ main()
     process.exit(1);
   });
 
-const recommendedRadios = [
-  {
-    id: uuidv4(),
-    name: "TokFM",
-    url: "https://radiostream.pl/tuba10-1.mp3",
-  },
-  {
-    id: uuidv4(),
-    name: "RMF FM",
-    url: "http://195.150.20.242:8000/rmf_fm",
-  },
-];
-const customRadios = [];
-const recommendedBroadcasts = [];
-const customBroadcasts = [];
-
-io.engine.on("connection_error", (err) => {
+io.engine.on("connection_error", (err: any) => {
   console.log(err);
 });
 
-io.on("connection", function (socket) {
+io.on("connection", function (socket: Socket) {
   console.log("Established socket connection");
   console.log("User connected: " + socket.id);
   socket.on("get-track-list", () => {
@@ -145,15 +157,14 @@ io.on("connection", function (socket) {
 
   socket.on("send-track-source", async (trackData) => {
     const trackSource = await getTrackSource(trackData.id);
+    invariant(trackSource, "Track source not found");
     const trackArray = await trackSource.arrayBuffer();
     socket.emit("send-track", { id: trackData.id, source: trackArray });
   });
   socket.on("save-to-library", async (trackId, accessToken) => {
-    console.log(accessToken);
     const user = await supabase.auth.getUser(accessToken);
-    console.log(user);
-    const userId = user.data.user.id;
-    console.log(userId);
+    const userId = user.data.user?.id;
+    invariant(userId, "User ID not found");
     if (libraryData.length !== 0) {
       const trackExists = libraryData.find((track) => {
         return track.id.includes(trackId, userId);
@@ -171,20 +182,20 @@ io.on("connection", function (socket) {
     }
   });
 
-  socket.on("get-now-playing-info", (trackId) => {
+  socket.on("get-now-playing-info", (trackId: string) => {
     const nowPlayingInfo = searchTrackData.find((track) => {
       return track.id.includes(trackId);
     });
     socket.emit("send-now-playing-info", nowPlayingInfo);
   });
 
-  socket.on("add-custom-radio-station", (stationURL) => {
-    customRadios.push({
-      id: uuidv4(),
-      name: "Custom Radio " + `${customRadios.length + 1}`,
-      url: stationURL,
-    });
-    socket.emit("get-custom-radio-stations", customRadios);
+  socket.on("add-custom-radio-station", async (stationURL, accessToken) => {
+    const user = await supabase.auth.getUser(accessToken);
+    const userId = user.data.user?.id;
+    invariant(userId, "User ID not found");
+    await saveToCustomRadios(stationURL, userId);
+    customRadioStations = await getCustomRadios(userId);
+    socket.emit("get-custom-radio-stations", customRadioStations);
   });
 
   socket.on("started-broadcast", (listeningStream, broadcastRoom) => {
@@ -200,24 +211,24 @@ io.on("connection", function (socket) {
     );
   });
 
-  socket.on("upload-custom-broadcast", (data) => {
-    const occurencesFromSameSession = customBroadcasts.filter(
-      (broadcast) => broadcast.title === data.title
-    );
-    if (occurencesFromSameSession.length > 0) {
-      customBroadcasts.push({
-        id: data.id,
-        title: data.title + ` (${occurencesFromSameSession.length})`,
-        artist: data.artist,
-        url: data.url,
-      });
-    } else {
-      customBroadcasts.push(data);
-    }
+  // socket.on("upload-custom-broadcast", (data) => {
+  //   const occurencesFromSameSession = customBroadcasts.filter(
+  //     (broadcast) => broadcast.title === data.title
+  //   );
+  //   if (occurencesFromSameSession.length > 0) {
+  //     customBroadcasts.push({
+  //       id: data.id,
+  //       title: data.title + ` (${occurencesFromSameSession.length})`,
+  //       artist: data.artist,
+  //       url: data.url,
+  //     });
+  //   } else {
+  //     customBroadcasts.push(data);
+  //   }
 
-    console.log(customBroadcasts);
-    socket.emit("get-custom-broadcasts", customBroadcasts);
-  });
+  //   console.log(customBroadcasts);
+  //   socket.emit("get-custom-broadcasts", customBroadcasts);
+  // });
 
   socket.on("send_message_to_server", (data) => {
     console.log(data);
@@ -240,9 +251,9 @@ io.on("connection", function (socket) {
 });
 
 app.get("/library", (req, res) => {
-  // eslint-disable-next-line camelcase
-  const access_token = req.headers.authorization.split(" ")[1];
-  supabase.auth.getUser(access_token).then((user) => {
+  invariant(req.headers.authorization, "Authorization header not found");
+  const accessToken = req.headers.authorization.split(" ")[1];
+  supabase.auth.getUser(accessToken).then((user) => {
     if (user.error) {
       res.status(401).send("Unauthorized");
     } else {
@@ -252,9 +263,17 @@ app.get("/library", (req, res) => {
 });
 
 app.get("/radio", (req, res) => {
-  res.send(recommendedRadios);
+  invariant(req.headers.authorization, "Authorization header not found");
+  const accessToken = req.headers.authorization.split(" ")[1];
+  supabase.auth.getUser(accessToken).then((user) => {
+    if (user.error) {
+      res.status(401).send("Unauthorized");
+    } else {
+      res.send(recommendedRadios);
+    }
+  });
 });
 
-app.get("/broadcast", (req, res) => {
-  res.send(recommendedBroadcasts);
-});
+// app.get("/broadcast", (req, res) => {
+//   res.send(recommendedBroadcasts);
+// });

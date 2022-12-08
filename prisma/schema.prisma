@@ -37,3 +37,10 @@ model SavedTrack {
   userId  String
   trackId String
 }
+
+model SavedRadioStation {
+  id      String @id @default(uuid())
+  userId  String
+  title   String
+  url     String
+}
