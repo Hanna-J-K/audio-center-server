@@ -211,6 +211,10 @@ io.on("connection", function (socket: Socket) {
     );
   });
 
+  socket.on("publish-broadcast-session-room", (broadcastRoomId) => {
+    socket.broadcast.emit("broadcast-session-room", broadcastRoomId);
+  })
+
   socket.on("send_message_to_server", (data) => {
     console.log(data);
     socket.broadcast.emit("broadcast_message", data);
