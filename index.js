@@ -27,10 +27,11 @@ app.use(cors());
 app.use(express.static("public"));
 app.use(express.json());
 
-let libraryData;
-let searchTrackData;
-let recommendedRadios;
-let customRadioStations;
+let libraryData = [];
+let searchTrackData = [];
+let recommendedRadios = [];
+let customRadioStations = [];
+let liveBroadcasts = [];
 
 const io = require("socket.io")(server, {
   cors: {
@@ -209,11 +210,31 @@ io.on("connection", function (socket) {
     );
   });
 
-  socket.on("publish-broadcast-session-room", (broadcastRoomId) => {
-    console.log("publish room");
-    console.log(broadcastRoomId);
-    socket.rooms;
-    socket.broadcast.emit("broadcast-session-room", broadcastRoomId);
+  socket.on("leave-broadcast-room", (broadcastRoomId, userSocketId) => {
+    io.of("/").sockets.get(userSocketId).leave(broadcastRoomId);
+    console.log(
+      "User " + userSocketId + " left broadcast room: " + broadcastRoomId
+    );
+  });
+
+  socket.on("publish-broadcast-session-room", (broadcastSessionData) => {
+    console.log(
+      "Broadcast room " + broadcastSessionData.room + " has been published"
+    );
+    liveBroadcasts.push(broadcastSessionData);
+  });
+
+  socket.on("stop-broadcast-session-room", async (broadcastSessionData) => {
+    console.log(
+      "Broadcast room " + broadcastSessionData.room + " has been stopped"
+    );
+    liveBroadcasts = liveBroadcasts.filter((broadcastSession) => {
+      return broadcastSession.room !== broadcastSessionData.room;
+    });
+    const roomClients = await io.in(broadcastSessionData.room).fetchSockets();
+    roomClients.forEach((client) => {
+      client.leave(broadcastSessionData.room);
+    });
   });
 
   socket.on("send_message_to_server", (data) => {
@@ -261,6 +282,13 @@ app.get("/radio", (req, res) => {
 });
 
 app.get("/broadcast", (req, res) => {
-  console.log(io.of("/").adapter.rooms);
-  res.send(io.of("/").adapter.rooms);
+  invariant(req.headers.authorization, "Authorization header not found");
+  const accessToken = req.headers.authorization.split(" ")[1];
+  supabase.auth.getUser(accessToken).then((user) => {
+    if (user.error) {
+      res.status(401).send("Unauthorized");
+    } else {
+      res.send(liveBroadcasts);
+    }
+  });
 });
